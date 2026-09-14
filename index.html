@@ -1099,7 +1099,7 @@
         colWrap.appendChild(col);
       });
       container.appendChild(colWrap);
-    } else if ((projSet !== null && projSet.size === 1) || selId !== null) {
+    } else if ((projSet !== null && projSet.size === 1) || (projSet === null && selId !== null)) {
       container.appendChild(buildTaskList(filtered));
     } else {
       const rendered = [];
