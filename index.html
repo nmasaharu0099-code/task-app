@@ -676,17 +676,8 @@
           <span style="font-weight:700; color:#2d3748; font-size:0.9rem">ノート一覧</span>
           <button class="btn-add-pill" onclick="addNote()">＋ 新規</button>
         </div>
-        <div class="note-cat-filter" id="note-cat-filter"></div>
+        <div class="note-cat-filter" id="note-proj-filter"></div>
         <div id="note-list-container"></div>
-        <div class="note-cat-manage">
-          <div style="margin-bottom:6px">カテゴリ管理</div>
-          <div class="inline-form" id="note-new-cat-form">
-            <input type="text" id="note-new-cat-input" placeholder="カテゴリ名..." />
-            <button class="btn-primary" onclick="addNoteCategory()">追加</button>
-            <button class="btn-cancel"  onclick="toggleInlineForm('note-new-cat-form')">×</button>
-          </div>
-          <button class="btn-add-pill" onclick="toggleInlineForm('note-new-cat-form')">＋ カテゴリ追加</button>
-        </div>
       </div>
       <!-- 右：エディタ -->
       <div class="notes-editor-area">
@@ -694,7 +685,8 @@
         <div id="note-editor-panel" style="display:none; flex:1; flex-direction:column">
           <input type="text" class="note-title-input" id="note-title-input" placeholder="タイトル..." oninput="noteChanged()" />
           <div class="note-meta-row">
-            <select class="note-meta-select" id="note-cat-select"  onchange="noteChanged()"><option value="">カテゴリなし</option></select>
+            <select class="note-meta-select" id="note-cat-select" onchange="noteChanged()"><option value="">カテゴリなし</option></select>
+            <button class="btn-add-pill" onclick="addNoteCategoryPrompt()" title="カテゴリ追加" style="padding:3px 8px; font-size:0.8rem">＋</button>
             <select class="note-meta-select" id="note-proj-select" onchange="noteChanged()"><option value="">案件なし</option></select>
             <button class="note-del-btn" onclick="deleteNote()">削除</button>
           </div>
@@ -856,9 +848,9 @@
   let taskTypes      = [];
   let notes          = [];
   let noteCategories = [];
-  let selectedNoteId    = null;
-  let selectedNoteCatId = null;
-  let noteAutoSaveTimer = null;
+  let selectedNoteId       = null;
+  let selectedNoteProjectId = null;
+  let noteAutoSaveTimer    = null;
 
   let currentView    = 'project';
   let filters        = { project: 'all', general: 'all' };
@@ -1563,21 +1555,23 @@
   }
 
   function renderNoteCatFilter() {
-    const el = document.getElementById('note-cat-filter');
+    // 案件フィルタ
+    const el = document.getElementById('note-proj-filter');
     if (!el) return;
     el.innerHTML = '';
     const allPill = document.createElement('span');
-    allPill.className = 'note-cat-pill' + (selectedNoteCatId === null ? ' active' : '');
-    if (selectedNoteCatId === null) allPill.style.cssText = 'background:#667eea22; color:#667eea; border-color:#667eea; font-weight:700';
+    allPill.className = 'note-cat-pill' + (selectedNoteProjectId === null ? ' active' : '');
+    if (selectedNoteProjectId === null) allPill.style.cssText = 'background:#667eea22; color:#667eea; border-color:#667eea; font-weight:700';
     allPill.textContent = 'すべて';
-    allPill.onclick = () => { selectedNoteCatId = null; renderNotes(); };
+    allPill.onclick = () => { selectedNoteProjectId = null; renderNotes(); };
     el.appendChild(allPill);
-    noteCategories.forEach(c => {
+    categories.forEach(c => {
       const p = document.createElement('span');
-      p.className = 'note-cat-pill' + (selectedNoteCatId === c.id ? ' active' : '');
-      p.style.cssText = `background:${c.color}22; color:${c.color}; border-color:${selectedNoteCatId === c.id ? c.color : 'transparent'}`;
+      const isActive = selectedNoteProjectId === c.id;
+      p.className = 'note-cat-pill' + (isActive ? ' active' : '');
+      p.style.cssText = `background:${c.color}22; color:${c.color}; border-color:${isActive ? c.color : 'transparent'}`;
       p.textContent = c.name;
-      p.onclick = () => { selectedNoteCatId = c.id; renderNotes(); };
+      p.onclick = () => { selectedNoteProjectId = c.id; renderNotes(); };
       el.appendChild(p);
     });
   }
@@ -1586,29 +1580,51 @@
     const el = document.getElementById('note-list-container');
     if (!el) return;
     el.innerHTML = '';
-    const filtered = selectedNoteCatId === null
+
+    const filtered = selectedNoteProjectId === null
       ? [...notes]
-      : notes.filter(n => n.noteCatId === selectedNoteCatId);
-    filtered.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      : notes.filter(n => n.projectId === selectedNoteProjectId);
+
     if (filtered.length === 0) {
       el.innerHTML = '<p style="font-size:0.8rem; color:#a0aec0; padding:8px 0">ノートがありません</p>';
       return;
     }
-    filtered.forEach(n => {
-      const div = document.createElement('div');
-      div.className = 'note-item' + (n.id === selectedNoteId ? ' active' : '');
-      const cat = noteCategories.find(c => c.id === n.noteCatId);
-      const proj = categories.find(c => c.id === n.projectId);
-      const metaParts = [];
-      if (cat)  metaParts.push(`<span style="color:${cat.color}">${escapeHtml(cat.name)}</span>`);
-      if (proj) metaParts.push(`<span style="color:${proj.color}">${escapeHtml(proj.name)}</span>`);
-      div.innerHTML = `
-        <div class="note-item-title">${escapeHtml(n.title) || '（タイトルなし）'}</div>
-        <div class="note-item-meta">${metaParts.join(' · ') || '&nbsp;'}</div>
-      `;
-      div.onclick = () => selectNote(n.id);
-      el.appendChild(div);
-    });
+
+    if (selectedNoteProjectId !== null) {
+      // 特定案件：フラット表示（更新日時順）
+      filtered.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      filtered.forEach(n => el.appendChild(buildNoteItem(n)));
+    } else {
+      // すべて：案件ごとにグループ表示
+      const groups = [];
+      categories.forEach(c => {
+        const items = filtered.filter(n => n.projectId === c.id);
+        if (items.length) groups.push({ label: c.name, color: c.color, items });
+      });
+      const noProj = filtered.filter(n => !n.projectId);
+      if (noProj.length) groups.push({ label: '案件なし', color: '#a0aec0', items: noProj });
+
+      groups.forEach(g => {
+        const hdr = document.createElement('div');
+        hdr.style.cssText = `font-size:0.78rem; font-weight:700; color:${g.color}; padding:6px 2px 3px; margin-top:6px; border-bottom:1.5px solid ${g.color}44;`;
+        hdr.textContent = g.label;
+        el.appendChild(hdr);
+        g.items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        g.items.forEach(n => el.appendChild(buildNoteItem(n)));
+      });
+    }
+  }
+
+  function buildNoteItem(n) {
+    const div = document.createElement('div');
+    div.className = 'note-item' + (n.id === selectedNoteId ? ' active' : '');
+    const cat = noteCategories.find(c => c.id === n.noteCatId);
+    div.innerHTML = `
+      <div class="note-item-title">${escapeHtml(n.title) || '（タイトルなし）'}</div>
+      <div class="note-item-meta">${cat ? `<span style="color:${cat.color}">${escapeHtml(cat.name)}</span>` : '&nbsp;'}</div>
+    `;
+    div.onclick = () => selectNote(n.id);
+    return div;
   }
 
   function renderNoteCatSelect() {
@@ -1644,8 +1660,7 @@
     const note = notes.find(n => n.id === id);
     if (!note) return;
     document.getElementById('note-empty-state').style.display = 'none';
-    const panel = document.getElementById('note-editor-panel');
-    panel.style.display = 'flex';
+    document.getElementById('note-editor-panel').style.display = 'flex';
     document.getElementById('note-title-input').value = note.title || '';
     document.getElementById('note-content-editor').innerHTML = note.content || '';
     renderNoteCatSelect();
@@ -1658,7 +1673,7 @@
   function addNote() {
     clearTimeout(noteAutoSaveTimer);
     if (selectedNoteId) saveNoteContent();
-    const note = { id: Date.now(), title: '', content: '', noteCatId: selectedNoteCatId, projectId: null, updatedAt: Date.now() };
+    const note = { id: Date.now(), title: '', content: '', noteCatId: null, projectId: selectedNoteProjectId, updatedAt: Date.now() };
     notes.unshift(note);
     save();
     selectedNoteId = note.id;
@@ -1701,23 +1716,19 @@
     document.execCommand(cmd, false, val || null);
   }
 
-  function addNoteCategory() {
-    const input = document.getElementById('note-new-cat-input');
-    const name = input.value.trim();
-    if (!name) return;
-    if (noteCategories.some(c => c.name === name)) { alert('同じ名前がすでにあります'); return; }
+  function addNoteCategoryPrompt() {
+    const name = prompt('新しいカテゴリ名を入力してください');
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (noteCategories.some(c => c.name === trimmed)) { alert('同じ名前がすでにあります'); return; }
     const color = COLOR_PALETTE[noteCategories.length % COLOR_PALETTE.length];
-    noteCategories.push({ id: Date.now(), name, color });
-    input.value = '';
-    toggleInlineForm('note-new-cat-form');
+    const newCat = { id: Date.now(), name: trimmed, color };
+    noteCategories.push(newCat);
     save();
-    renderNotes();
+    renderNoteCatSelect();
+    document.getElementById('note-cat-select').value = newCat.id;
+    noteChanged();
   }
-
-  document.getElementById('note-new-cat-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter')  addNoteCategory();
-    if (e.key === 'Escape') toggleInlineForm('note-new-cat-form');
-  });
 </script>
 </body>
 </html>
