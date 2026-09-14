@@ -702,7 +702,23 @@
     db.collection('users').doc(uid).collection('data').doc('main')
       .onSnapshot(doc => {
         if (skipNextSnapshot) { skipNextSnapshot = false; return; }
-        if (!doc.exists) { taskTypes = [...DEFAULT_TASK_TYPES]; renderAll(); return; }
+        if (!doc.exists) {
+          // localStorageに古いデータがあれば自動移行
+          const oldTasks      = JSON.parse(localStorage.getItem('tasks')      || '[]');
+          const oldCategories = JSON.parse(localStorage.getItem('categories') || '[]');
+          const oldTaskTypes  = JSON.parse(localStorage.getItem('taskTypes')  || 'null');
+          const oldEvents     = JSON.parse(localStorage.getItem('events')     || '[]');
+          if (oldTasks.length || oldCategories.length || oldEvents.length) {
+            tasks      = oldTasks;
+            categories = oldCategories;
+            taskTypes  = oldTaskTypes || [...DEFAULT_TASK_TYPES];
+            events     = oldEvents;
+            save();
+            renderAll();
+            return;
+          }
+          taskTypes = [...DEFAULT_TASK_TYPES]; renderAll(); return;
+        }
         const d = doc.data();
         tasks      = d.tasks      || [];
         categories = d.categories || [];
