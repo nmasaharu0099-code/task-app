@@ -356,6 +356,15 @@
     }
     .summary { text-align: right; font-size: 0.82rem; color: #718096; margin-top: 12px; }
 
+    /* ---- 複数案件横並び ---- */
+    .task-columns { display: flex; gap: 12px; align-items: flex-start; }
+    .task-column  { flex: 1; min-width: 0; }
+    .task-column-header {
+      font-weight: 700; font-size: 0.9rem;
+      padding: 6px 4px; border-bottom: 2px solid;
+      margin-bottom: 8px;
+    }
+
     /* ---- イベント ---- */
     .events-sidebar {
       width: 230px;
@@ -769,7 +778,7 @@
 
   let currentView    = 'project';
   let filters        = { project: 'all', general: 'all' };
-  let selectedId     = { project: null, general: null };
+  let selectedId     = { project: new Set(), general: null };
   const collapsedGroups = new Set();
 
   function save() {
@@ -850,7 +859,8 @@
       taskTypes = taskTypes.filter(t => t.id !== id);
       tasks = tasks.map(t => t.typeId === id ? { ...t, typeId: null } : t);
     }
-    if (selectedId[section] === id) selectedId[section] = null;
+    if (section === 'project') selectedId.project.delete(id);
+    else if (selectedId.general === id) selectedId.general = null;
     save();
     renderGroups(section);
     renderGroupSelect(section);
@@ -858,7 +868,17 @@
   }
 
   function selectGroup(section, id) {
-    selectedId[section] = (id !== null && selectedId[section] === id) ? null : id;
+    if (section === 'project') {
+      if (id === null) {
+        selectedId.project = new Set();
+      } else if (selectedId.project.has(id)) {
+        selectedId.project.delete(id);
+      } else {
+        selectedId.project.add(id);
+      }
+    } else {
+      selectedId.general = (id !== null && selectedId.general === id) ? null : id;
+    }
     renderGroups(section);
     renderTasks(section);
   }
@@ -870,16 +890,18 @@
     const selId  = selectedId[section];
     pills.innerHTML = '';
 
+    const isAllSelected = section === 'project' ? selectedId.project.size === 0 : selId === null;
     const allPill = document.createElement('div');
-    allPill.className = 'pill' + (selId === null ? ' selected' : '');
+    allPill.className = 'pill' + (isAllSelected ? ' selected' : '');
     allPill.style.cssText = 'background:#edf2f7; color:#4a5568;';
     allPill.onclick = () => selectGroup(section, null);
     allPill.innerHTML = `<span class="dot" style="background:#a0aec0"></span>すべて`;
     pills.appendChild(allPill);
 
     groups.forEach(g => {
+      const isSelected = section === 'project' ? selectedId.project.has(g.id) : selId === g.id;
       const pill = document.createElement('div');
-      pill.className = 'pill' + (selId === g.id ? ' selected' : '');
+      pill.className = 'pill' + (isSelected ? ' selected' : '');
       pill.style.cssText = `background:${g.color}22; color:${g.color};`;
       pill.onclick = () => selectGroup(section, g.id);
       pill.innerHTML = `
@@ -1023,13 +1045,18 @@
     const groups    = groupsFor(section);
     const selId     = selectedId[section];
     const filter    = filters[section];
+    const projSet   = section === 'project' ? selectedId.project : null;
 
     const sectionTasks = tasks.filter(t => t.section === section);
 
     const filtered = sectionTasks.filter(t => {
       if (filter === 'active' && t.done)  return false;
       if (filter === 'done'   && !t.done) return false;
-      if (selId !== null && t[key] !== selId) return false;
+      if (projSet !== null) {
+        if (projSet.size > 0 && !projSet.has(t[key])) return false;
+      } else {
+        if (selId !== null && t[key] !== selId) return false;
+      }
       return true;
     });
 
@@ -1043,11 +1070,36 @@
         const ra = PRIORITY_RANK[a.priority] ?? 99;
         const rb = PRIORITY_RANK[b.priority] ?? 99;
         if (ra !== rb) return ra - rb;
-        // 同優先度なら未完了を先に
         return (a.done ? 1 : 0) - (b.done ? 1 : 0);
       });
       container.appendChild(buildTaskList(sorted, true));
-    } else if (selId !== null) {
+    } else if (projSet !== null && projSet.size >= 2) {
+      // 複数案件横並び表示
+      const colWrap = document.createElement('div');
+      colWrap.className = 'task-columns';
+      projSet.forEach(gId => {
+        const g = groups.find(g => g.id === gId);
+        if (!g) return;
+        const colItems = filtered.filter(t => t[key] === gId);
+        const col = document.createElement('div');
+        col.className = 'task-column';
+        const hdr = document.createElement('div');
+        hdr.className = 'task-column-header';
+        hdr.style.cssText = `border-color:${g.color}; color:${g.color}`;
+        hdr.innerHTML = `${escapeHtml(g.name)} <span style="color:#a0aec0; font-weight:400">${colItems.length}件</span>`;
+        col.appendChild(hdr);
+        if (colItems.length === 0) {
+          const emp = document.createElement('p');
+          emp.className = 'empty-msg';
+          emp.textContent = 'タスクがありません';
+          col.appendChild(emp);
+        } else {
+          col.appendChild(buildTaskList(colItems));
+        }
+        colWrap.appendChild(col);
+      });
+      container.appendChild(colWrap);
+    } else if ((projSet !== null && projSet.size === 1) || selId !== null) {
       container.appendChild(buildTaskList(filtered));
     } else {
       const rendered = [];
