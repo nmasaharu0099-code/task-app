@@ -822,6 +822,20 @@
     renderGroupSelect(section);
   }
 
+  function renameGroup(section, id) {
+    const groups = groupsFor(section);
+    const group  = groups.find(g => g.id === id);
+    if (!group) return;
+    const newName = prompt('新しい名前を入力してください', group.name);
+    if (!newName || !newName.trim()) return;
+    const trimmed = newName.trim();
+    if (groups.some(g => g.id !== id && g.name === trimmed)) { alert('同じ名前がすでにあります'); return; }
+    group.name = trimmed;
+    save();
+    renderGroups(section);
+    renderGroupSelect(section);
+  }
+
   function deleteGroup(section, id) {
     const label = section === 'project' ? '案件' : '種別';
     const detail = section === 'project'
@@ -871,6 +885,7 @@
       pill.innerHTML = `
         <span class="dot" style="background:${g.color}"></span>
         ${escapeHtml(g.name)}
+        <button class="remove-pill" onclick="event.stopPropagation(); renameGroup('${section}', ${g.id})" title="名前変更" style="opacity:0.6; font-size:0.8rem; margin-right:2px">✎</button>
         <button class="remove-pill" onclick="event.stopPropagation(); deleteGroup('${section}', ${g.id})" title="削除">×</button>
       `;
       pills.appendChild(pill);
