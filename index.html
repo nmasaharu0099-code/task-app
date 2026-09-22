@@ -394,6 +394,17 @@
     .note-del-btn:hover { background: #fff5f5; }
     .note-cat-manage { margin-top: auto; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 0.78rem; color: #a0aec0; }
 
+    /* ---- 編集モーダル ---- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .modal { background: white; border-radius: 16px; padding: 24px; width: 90%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .modal h3 { font-size: 1rem; font-weight: 700; color: #1a202c; margin-bottom: 16px; }
+    .modal-field { margin-bottom: 12px; }
+    .modal-label { font-size: 0.8rem; color: #718096; margin-bottom: 4px; }
+    .modal-field input[type="text"], .modal-field input[type="date"], .modal-field select { width: 100%; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
+    .edit-btn { background: none; border: none; cursor: pointer; color: #a0aec0; font-size: 0.9rem; padding: 2px 6px; border-radius: 4px; }
+    .edit-btn:hover { color: #667eea; background: #667eea15; }
+
     /* ---- イベント ---- */
     .events-sidebar {
       width: 230px;
@@ -752,6 +763,40 @@
   </div><!-- /main-layout -->
 
 </div><!-- /container -->
+
+<!-- タスク編集モーダル -->
+<div id="task-edit-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeTaskEdit()">
+  <div class="modal">
+    <h3>タスクを編集</h3>
+    <div class="modal-field">
+      <div class="modal-label">タスク名</div>
+      <input type="text" id="edit-task-text" />
+    </div>
+    <div class="modal-field" id="edit-cat-field">
+      <div class="modal-label" id="edit-cat-label">案件</div>
+      <select id="edit-task-cat"></select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">完了予定日</div>
+      <input type="date" id="edit-task-date" />
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">優先度</div>
+      <select id="edit-task-priority">
+        <option value="">なし</option>
+        <option value="urgent">▲ 緊急</option>
+        <option value="high">↑ 高</option>
+        <option value="medium">→ 中</option>
+        <option value="low">↓ 低</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTaskEdit()">キャンセル</button>
+      <button class="btn-primary" onclick="saveTaskEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /app -->
 
 <script>
@@ -1241,7 +1286,8 @@
           <div class="task-text">${escapeHtml(task.text)}</div>
           <div class="task-meta">${priorityPart}${duePart}${repeatPart}${groupBadge}</div>
         </div>
-        <button class="delete-btn" onclick="deleteTask(${task.id})" title="削除">×</button>
+        <button class="edit-btn"   onclick="openTaskEdit(${task.id})"  title="編集">✎</button>
+        <button class="delete-btn" onclick="deleteTask(${task.id})"  title="削除">×</button>
       `;
       ul.appendChild(li);
     });
@@ -1541,6 +1587,77 @@
       if (e.key === 'Enter')  addGroup(section);
       if (e.key === 'Escape') toggleInlineForm(id.startsWith('p') ? 'p-newCatForm' : 'g-newTypeForm');
     });
+  });
+
+  // ---- タスク編集モーダル ----
+
+  let editingTaskId = null;
+
+  function openTaskEdit(id) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    editingTaskId = id;
+
+    document.getElementById('edit-task-text').value     = task.text     || '';
+    document.getElementById('edit-task-date').value     = task.dueDate  || '';
+    document.getElementById('edit-task-priority').value = task.priority || '';
+
+    const catSel   = document.getElementById('edit-task-cat');
+    const catLabel = document.getElementById('edit-cat-label');
+    catSel.innerHTML = '';
+    if (task.section === 'project') {
+      catLabel.textContent = '案件';
+      catSel.innerHTML = '<option value="">案件なし</option>';
+      categories.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.id; o.textContent = c.name;
+        catSel.appendChild(o);
+      });
+      catSel.value = task.categoryId || '';
+    } else {
+      catLabel.textContent = '種別';
+      catSel.innerHTML = '<option value="">種別なし</option>';
+      taskTypes.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.id; o.textContent = t.name;
+        catSel.appendChild(o);
+      });
+      catSel.value = task.typeId || '';
+    }
+
+    document.getElementById('task-edit-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('edit-task-text').select(), 50);
+  }
+
+  function closeTaskEdit() {
+    editingTaskId = null;
+    document.getElementById('task-edit-modal').style.display = 'none';
+  }
+
+  function saveTaskEdit() {
+    if (!editingTaskId) return;
+    const task = tasks.find(t => t.id === editingTaskId);
+    if (!task) return;
+
+    const newText = document.getElementById('edit-task-text').value.trim();
+    if (!newText) { alert('タスク名を入力してください'); return; }
+
+    task.text     = newText;
+    task.dueDate  = document.getElementById('edit-task-date').value     || null;
+    task.priority = document.getElementById('edit-task-priority').value || null;
+
+    const catVal = parseInt(document.getElementById('edit-task-cat').value) || null;
+    if (task.section === 'project') task.categoryId = catVal;
+    else                            task.typeId      = catVal;
+
+    save();
+    renderTasks(task.section);
+    closeTaskEdit();
+  }
+
+  document.getElementById('edit-task-text').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveTaskEdit();
+    if (e.key === 'Escape') closeTaskEdit();
   });
 
   // 初期描画は auth.onAuthStateChanged → startSync → renderAll() で行われる
