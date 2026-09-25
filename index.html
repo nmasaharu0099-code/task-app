@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>タスク管理アプリ</title>
   <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%237b6fe0'/%3E%3Cstop offset='100%25' stop-color='%234a6cf7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Crect x='11' y='16' width='13' height='13' rx='3.5' fill='white'/%3E%3Cpolyline points='13.5,22.5 16.5,25.5 22,18.5' fill='none' stroke='%236068f0' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='29' y='20' width='23' height='5' rx='2.5' fill='white'/%3E%3Crect x='11' y='34' width='13' height='13' rx='3.5' fill='white'/%3E%3Cpolyline points='13.5,40.5 16.5,43.5 22,36.5' fill='none' stroke='%236068f0' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='29' y='38' width='17' height='5' rx='2.5' fill='white'/%3E%3Crect x='11' y='50' width='13' height='13' rx='3.5' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2'/%3E%3Crect x='29' y='54' width='20' height='5' rx='2.5' fill='rgba(255,255,255,0.35)'/%3E%3C/svg%3E">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -386,12 +387,14 @@
     .note-meta-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
     .note-meta-select { padding: 4px 8px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.82rem; outline: none; cursor: pointer; background: white; font-family: inherit; }
     .note-meta-select:focus { border-color: #667eea; }
-    .editor-toolbar { display: flex; gap: 4px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px; flex-wrap: wrap; }
+    .editor-toolbar { display: flex; gap: 4px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
     .toolbar-btn { padding: 4px 10px; border: 1.5px solid #e2e8f0; border-radius: 6px; cursor: pointer; background: white; font-size: 0.82rem; font-family: inherit; transition: all 0.15s; }
     .toolbar-btn:hover { background: #667eea; color: white; border-color: #667eea; }
-    .note-content-editor { flex: 1; min-height: 360px; padding: 10px 4px; outline: none; line-height: 1.7; font-size: 0.95rem; overflow-y: auto; color: #2d3748; }
-    .note-content-editor ul, .note-content-editor ol { padding-left: 20px; }
-    .note-content-editor h3 { font-size: 1rem; margin: 8px 0 4px; color: #1a202c; }
+    .toolbar-btn.active { background: #667eea; color: white; border-color: #667eea; }
+    .toolbar-sep { width: 1px; background: #e2e8f0; height: 22px; margin: 0 2px; }
+    .toolbar-color { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #e2e8f0; cursor: pointer; padding: 0; overflow: hidden; }
+    .note-canvas-container { flex: 1; overflow: auto; border: 1.5px solid #e2e8f0; border-radius: 10px; background: #fafafa; position: relative; }
+    .note-canvas-container canvas { display: block; }
     .note-empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-size: 0.95rem; }
     .note-del-btn { margin-left: auto; padding: 3px 10px; border: 1.5px solid #fc8181; border-radius: 8px; color: #e53e3e; background: white; font-size: 0.8rem; cursor: pointer; font-family: inherit; }
     .note-del-btn:hover { background: #fff5f5; }
@@ -726,15 +729,26 @@
             <button class="note-del-btn" onclick="deleteNote()">削除</button>
           </div>
           <div class="editor-toolbar">
-            <button class="toolbar-btn" onclick="fmt('bold')"                title="太字"><b>B</b></button>
-            <button class="toolbar-btn" onclick="fmt('italic')"              title="斜体"><i>I</i></button>
-            <button class="toolbar-btn" onclick="fmt('underline')"           title="下線"><u>U</u></button>
-            <button class="toolbar-btn" onclick="fmt('insertUnorderedList')" title="箇条書き">• リスト</button>
-            <button class="toolbar-btn" onclick="fmt('insertOrderedList')"   title="番号リスト">1. リスト</button>
-            <button class="toolbar-btn" onclick="fmt('formatBlock','h3')"    title="見出し">見出し</button>
-            <button class="toolbar-btn" onclick="fmt('formatBlock','p')"     title="標準">標準</button>
+            <button class="toolbar-btn active" id="tool-select" onclick="setNoteTool('select')" title="選択・移動">↖ 選択</button>
+            <button class="toolbar-btn" id="tool-text"   onclick="setNoteTool('text')"   title="テキスト追加">T テキスト</button>
+            <button class="toolbar-btn" id="tool-rect"   onclick="setNoteTool('rect')"   title="長方形">□ 長方形</button>
+            <button class="toolbar-btn" id="tool-circle" onclick="setNoteTool('circle')" title="円">○ 円</button>
+            <div class="toolbar-sep"></div>
+            <label class="toolbar-btn" title="線の色" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+              線 <input type="color" id="stroke-color" value="#e53e3e" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0" onchange="updateNoteColors()">
+            </label>
+            <label class="toolbar-btn" title="塗りつぶし色" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+              塗 <input type="color" id="fill-color" value="#ffffff" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0" onchange="updateNoteColors()">
+              <input type="checkbox" id="fill-none" title="塗りなし" checked onchange="updateNoteColors()"> なし
+            </label>
+            <div class="toolbar-sep"></div>
+            <button class="toolbar-btn" onclick="noteDeleteSelected()" title="選択オブジェクト削除">🗑 削除</button>
+            <button class="toolbar-btn" onclick="document.getElementById('note-img-input').click()" title="画像を追加">🖼 画像</button>
+            <input type="file" id="note-img-input" accept="image/*" style="display:none" onchange="noteAddImageFile(this)">
           </div>
-          <div class="note-content-editor" id="note-content-editor" contenteditable="true" oninput="noteChanged()"></div>
+          <div class="note-canvas-container" id="note-canvas-container">
+            <canvas id="note-canvas"></canvas>
+          </div>
         </div>
       </div>
     </div>
@@ -1809,6 +1823,164 @@
     el.value = prev;
   }
 
+  // ---- Fabric.js キャンバス ----
+  let noteCanvas = null;
+  let noteTool = 'select';
+  let noteDrawStart = null;
+  let noteDrawShape = null;
+
+  function initNoteCanvas() {
+    const container = document.getElementById('note-canvas-container');
+    const w = Math.max(container.clientWidth - 4, 400);
+    window.removeEventListener('paste', onNoteImagePaste);
+    if (noteCanvas) {
+      noteCanvas.off();
+      noteCanvas.dispose();
+    }
+    noteCanvas = new fabric.Canvas('note-canvas', {
+      width: w, height: 520, backgroundColor: 'white', selection: true
+    });
+    noteCanvas.on('object:modified', noteChanged);
+    noteCanvas.on('object:added',    noteChanged);
+    noteCanvas.on('object:removed',  noteChanged);
+
+    // 図形描画
+    noteCanvas.on('mouse:down', opt => {
+      if (noteTool === 'select' || noteTool === 'text') return;
+      noteCanvas.selection = false;
+      const p = noteCanvas.getPointer(opt.e);
+      noteDrawStart = p;
+      const stroke = document.getElementById('stroke-color').value;
+      const fillNone = document.getElementById('fill-none').checked;
+      const fill = fillNone ? 'transparent' : document.getElementById('fill-color').value;
+      if (noteTool === 'rect') {
+        noteDrawShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, stroke, strokeWidth: 2, fill, selectable: false });
+      } else {
+        noteDrawShape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 0, ry: 0, stroke, strokeWidth: 2, fill, selectable: false });
+      }
+      noteCanvas.add(noteDrawShape);
+    });
+    noteCanvas.on('mouse:move', opt => {
+      if (!noteDrawShape || !noteDrawStart) return;
+      const p = noteCanvas.getPointer(opt.e);
+      const dx = p.x - noteDrawStart.x, dy = p.y - noteDrawStart.y;
+      if (noteTool === 'rect') {
+        noteDrawShape.set({ left: Math.min(p.x, noteDrawStart.x), top: Math.min(p.y, noteDrawStart.y), width: Math.abs(dx), height: Math.abs(dy) });
+      } else {
+        noteDrawShape.set({ left: Math.min(p.x, noteDrawStart.x), top: Math.min(p.y, noteDrawStart.y), rx: Math.abs(dx)/2, ry: Math.abs(dy)/2 });
+      }
+      noteCanvas.renderAll();
+    });
+    noteCanvas.on('mouse:up', () => {
+      if (!noteDrawShape) return;
+      noteDrawShape.set({ selectable: true });
+      noteCanvas.setActiveObject(noteDrawShape);
+      noteDrawShape = null; noteDrawStart = null;
+      noteCanvas.selection = true;
+    });
+
+    // テキスト追加
+    noteCanvas.on('mouse:down', opt => {
+      if (noteTool !== 'text') return;
+      const p = noteCanvas.getPointer(opt.e);
+      const tb = new fabric.IText('テキスト', { left: p.x, top: p.y, fontSize: 16, fill: '#1a202c', fontFamily: 'Segoe UI, sans-serif' });
+      noteCanvas.add(tb);
+      noteCanvas.setActiveObject(tb);
+      tb.enterEditing();
+      tb.selectAll();
+      setNoteTool('select');
+    });
+
+    // 画像ペースト
+    window.addEventListener('paste', onNoteImagePaste);
+  }
+
+  function destroyNoteCanvas() {
+    window.removeEventListener('paste', onNoteImagePaste);
+    if (noteCanvas) { noteCanvas.off(); noteCanvas.dispose(); noteCanvas = null; }
+  }
+
+  function onNoteImagePaste(e) {
+    if (!selectedNoteId || !noteCanvas) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const dataUrl = ev.target.result;
+          fabric.Image.fromURL(dataUrl, img => {
+            const maxW = noteCanvas.getWidth() - 40;
+            if (img.width > maxW) img.scaleToWidth(maxW);
+            img.set({ left: 20, top: 20 });
+            noteCanvas.add(img);
+            noteCanvas.setActiveObject(img);
+            noteCanvas.renderAll();
+            noteChanged();
+          });
+        };
+        reader.readAsDataURL(blob);
+        e.preventDefault();
+        break;
+      }
+    }
+  }
+
+  function noteAddImageFile(input) {
+    if (!input.files[0] || !noteCanvas) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      fabric.Image.fromURL(ev.target.result, img => {
+        const maxW = noteCanvas.getWidth() - 40;
+        if (img.width > maxW) img.scaleToWidth(maxW);
+        img.set({ left: 20, top: 20 });
+        noteCanvas.add(img);
+        noteCanvas.setActiveObject(img);
+        noteCanvas.renderAll();
+        noteChanged();
+      });
+    };
+    reader.readAsDataURL(input.files[0]);
+    input.value = '';
+  }
+
+  function setNoteTool(tool) {
+    noteTool = tool;
+    document.querySelectorAll('.editor-toolbar .toolbar-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tool-' + tool);
+    if (btn) btn.classList.add('active');
+    if (noteCanvas) {
+      noteCanvas.isDrawingMode = false;
+      noteCanvas.defaultCursor = tool === 'select' ? 'default' : tool === 'text' ? 'text' : 'crosshair';
+    }
+  }
+
+  function updateNoteColors() {
+    if (!noteCanvas) return;
+    const obj = noteCanvas.getActiveObject();
+    if (!obj) return;
+    const stroke = document.getElementById('stroke-color').value;
+    const fillNone = document.getElementById('fill-none').checked;
+    const fill = fillNone ? 'transparent' : document.getElementById('fill-color').value;
+    obj.set({ stroke, fill });
+    noteCanvas.renderAll();
+    noteChanged();
+  }
+
+  function noteDeleteSelected() {
+    if (!noteCanvas) return;
+    const obj = noteCanvas.getActiveObject();
+    if (!obj) return;
+    if (obj.type === 'activeSelection') {
+      obj.forEachObject(o => noteCanvas.remove(o));
+      noteCanvas.discardActiveObject();
+    } else {
+      noteCanvas.remove(obj);
+    }
+    noteCanvas.renderAll();
+  }
+
   function selectNote(id) {
     clearTimeout(noteAutoSaveTimer);
     if (selectedNoteId && selectedNoteId !== id) saveNoteContent();
@@ -1818,29 +1990,37 @@
     document.getElementById('note-empty-state').style.display = 'none';
     document.getElementById('note-editor-panel').style.display = 'flex';
     document.getElementById('note-title-input').value = note.title || '';
-    document.getElementById('note-content-editor').innerHTML = note.content || '';
     renderNoteCatSelect();
     renderNoteProjSelect();
     document.getElementById('note-cat-select').value  = note.noteCatId  || '';
     document.getElementById('note-proj-select').value = note.projectId  || '';
+
+    // キャンバス初期化してデータ読み込み
+    setTimeout(() => {
+      initNoteCanvas();
+      if (note.canvasJson) {
+        noteCanvas.loadFromJSON(note.canvasJson, () => noteCanvas.renderAll());
+      }
+    }, 30);
     renderNoteList();
   }
 
   function addNote() {
     clearTimeout(noteAutoSaveTimer);
     if (selectedNoteId) saveNoteContent();
-    const note = { id: Date.now(), title: '', content: '', noteCatId: null, projectId: selectedNoteProjectId, updatedAt: Date.now() };
+    const note = { id: Date.now(), title: '', canvasJson: null, noteCatId: null, projectId: selectedNoteProjectId, updatedAt: Date.now() };
     notes.unshift(note);
     save();
     selectedNoteId = note.id;
     renderNotes();
     selectNote(note.id);
-    setTimeout(() => document.getElementById('note-title-input').focus(), 50);
+    setTimeout(() => document.getElementById('note-title-input').focus(), 80);
   }
 
   function deleteNote() {
     if (!selectedNoteId) return;
     if (!confirm('このノートを削除しますか？')) return;
+    destroyNoteCanvas();
     notes = notes.filter(n => n.id !== selectedNoteId);
     selectedNoteId = null;
     save();
@@ -1851,15 +2031,15 @@
 
   function noteChanged() {
     clearTimeout(noteAutoSaveTimer);
-    noteAutoSaveTimer = setTimeout(saveNoteContent, 800);
+    noteAutoSaveTimer = setTimeout(saveNoteContent, 1000);
   }
 
   function saveNoteContent() {
-    if (!selectedNoteId) return;
+    if (!selectedNoteId || !noteCanvas) return;
     const note = notes.find(n => n.id === selectedNoteId);
     if (!note) return;
     note.title     = document.getElementById('note-title-input').value;
-    note.content   = document.getElementById('note-content-editor').innerHTML;
+    note.canvasJson = JSON.stringify(noteCanvas.toJSON());
     note.noteCatId = parseInt(document.getElementById('note-cat-select').value)  || null;
     note.projectId = parseInt(document.getElementById('note-proj-select').value) || null;
     note.updatedAt = Date.now();
@@ -1867,10 +2047,7 @@
     renderNoteList();
   }
 
-  function fmt(cmd, val) {
-    document.getElementById('note-content-editor').focus();
-    document.execCommand(cmd, false, val || null);
-  }
+  function fmt() {} // 旧API互換（呼び出し残り対策）
 
   function addNoteCategoryPrompt() {
     const name = prompt('新しいカテゴリ名を入力してください');
