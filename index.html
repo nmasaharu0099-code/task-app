@@ -236,6 +236,7 @@
       border: 2px solid #e2e8f0;
       border-radius: 10px;
       transition: all 0.2s;
+      position: relative;
     }
     .task-item:hover { border-color: #c3dafe; background: #f7f8ff; }
     .task-item.done { background: #f7fafc; }
@@ -406,6 +407,24 @@
     .modal-field textarea { width: 100%; padding: 10px 14px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.2s; }
     .modal-field textarea:focus { border-color: #667eea; }
     .task-memo-icon { font-size: 0.75rem; color: #a0aec0; margin-left: 4px; }
+    .task-memo-popup {
+      display: none;
+      position: absolute;
+      left: 0; top: calc(100% + 4px);
+      background: #2d3748;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      max-width: 320px;
+      z-index: 200;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      pointer-events: none;
+      word-break: break-word;
+    }
+    .task-item:hover .task-memo-popup { display: block; }
     .modal-btns { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
     .edit-btn { background: none; border: none; cursor: pointer; color: #a0aec0; font-size: 0.9rem; padding: 2px 6px; border-radius: 4px; }
     .edit-btn:hover { color: #667eea; background: #667eea15; }
@@ -1292,7 +1311,8 @@
       li.innerHTML = `
         <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${task.id})">
         <div class="task-body">
-          <div class="task-text">${escapeHtml(task.text)}${task.memo ? '<span class="task-memo-icon" title="' + escapeHtml(task.memo) + '">📝</span>' : ''}</div>
+          <div class="task-text">${escapeHtml(task.text)}${task.memo ? `<span class="task-memo-icon" onclick="event.stopPropagation();openTaskEdit(${task.id},true)" style="cursor:pointer">📝</span>` : ''}</div>
+          ${task.memo ? `<div class="task-memo-popup">${escapeHtml(task.memo)}</div>` : ''}
           <div class="task-meta">${priorityPart}${duePart}${repeatPart}${groupBadge}</div>
         </div>
         <button class="edit-btn"   onclick="openTaskEdit(${task.id})"  title="編集">✎</button>
@@ -1602,7 +1622,7 @@
 
   let editingTaskId = null;
 
-  function openTaskEdit(id) {
+  function openTaskEdit(id, focusMemo = false) {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     editingTaskId = id;
@@ -1636,7 +1656,15 @@
 
     document.getElementById('edit-task-memo').value = task.memo || '';
     document.getElementById('task-edit-modal').style.display = 'flex';
-    setTimeout(() => document.getElementById('edit-task-text').select(), 50);
+    setTimeout(() => {
+      if (focusMemo) {
+        const memo = document.getElementById('edit-task-memo');
+        memo.focus();
+        memo.setSelectionRange(memo.value.length, memo.value.length);
+      } else {
+        document.getElementById('edit-task-text').select();
+      }
+    }, 50);
   }
 
   function closeTaskEdit() {
