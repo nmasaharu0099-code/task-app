@@ -403,6 +403,9 @@
     .modal-field { margin-bottom: 12px; }
     .modal-label { font-size: 0.8rem; color: #718096; margin-bottom: 4px; }
     .modal-field input[type="text"], .modal-field input[type="date"], .modal-field select { width: 100%; }
+    .modal-field textarea { width: 100%; padding: 10px 14px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.2s; }
+    .modal-field textarea:focus { border-color: #667eea; }
+    .task-memo-icon { font-size: 0.75rem; color: #a0aec0; margin-left: 4px; }
     .modal-btns { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
     .edit-btn { background: none; border: none; cursor: pointer; color: #a0aec0; font-size: 0.9rem; padding: 2px 6px; border-radius: 4px; }
     .edit-btn:hover { color: #667eea; background: #667eea15; }
@@ -791,6 +794,10 @@
         <option value="medium">→ 中</option>
         <option value="low">↓ 低</option>
       </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">メモ</div>
+      <textarea id="edit-task-memo" rows="4" placeholder="メモを入力..."></textarea>
     </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeTaskEdit()">キャンセル</button>
@@ -1285,7 +1292,7 @@
       li.innerHTML = `
         <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask(${task.id})">
         <div class="task-body">
-          <div class="task-text">${escapeHtml(task.text)}</div>
+          <div class="task-text">${escapeHtml(task.text)}${task.memo ? '<span class="task-memo-icon" title="' + escapeHtml(task.memo) + '">📝</span>' : ''}</div>
           <div class="task-meta">${priorityPart}${duePart}${repeatPart}${groupBadge}</div>
         </div>
         <button class="edit-btn"   onclick="openTaskEdit(${task.id})"  title="編集">✎</button>
@@ -1627,6 +1634,7 @@
       catSel.value = task.typeId || '';
     }
 
+    document.getElementById('edit-task-memo').value = task.memo || '';
     document.getElementById('task-edit-modal').style.display = 'flex';
     setTimeout(() => document.getElementById('edit-task-text').select(), 50);
   }
@@ -1647,6 +1655,7 @@
     task.text     = newText;
     task.dueDate  = document.getElementById('edit-task-date').value     || null;
     task.priority = document.getElementById('edit-task-priority').value || null;
+    task.memo     = document.getElementById('edit-task-memo').value.trim() || null;
 
     const catVal = parseInt(document.getElementById('edit-task-cat').value) || null;
     if (task.section === 'project') task.categoryId = catVal;
