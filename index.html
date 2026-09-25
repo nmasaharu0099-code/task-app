@@ -959,6 +959,7 @@
     document.getElementById('view-project').style.display = view === 'project' ? '' : 'none';
     document.getElementById('view-general').style.display = view === 'general' ? '' : 'none';
     document.getElementById('view-notes').style.display   = view === 'notes'   ? '' : 'none';
+    document.querySelector('.events-sidebar').style.display = view === 'notes' ? 'none' : '';
     document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   }
